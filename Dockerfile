@@ -2,6 +2,10 @@
 # Use Node.js as the base image
 FROM node:20-alpine
 
+# Add build argument to bust cache
+ARG BUILD_DATE
+RUN echo "Build date: $BUILD_DATE"
+
 # Set working directory
 WORKDIR /app
 
