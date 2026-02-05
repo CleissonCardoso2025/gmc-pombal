@@ -1,38 +1,74 @@
 /**
- * Serviço de Configuração de Ambiente
+ * Serviço de Configuração de Ambiente - Versão Segura com Edge Functions
  * 
  * Este serviço gerencia as chaves de API e configurações sensíveis
- * através de variáveis de ambiente, garantindo segurança no deployment.
- * 
- * IMPORTANTE: Todas as chaves devem ser configuradas no Dokploy
- * através da seção "Environment Variables" do projeto.
+ * através de Edge Functions do Supabase, garantindo que as chaves
+ * nunca sejam expostas no frontend.
  */
+
+import { supabase } from '@/integrations/supabase/client';
+
+// Cache para as chaves de API (válido por 1 hora)
+const API_KEY_CACHE_DURATION = 60 * 60 * 1000; // 1 hora em ms
+
+interface CachedKey {
+  value: string;
+  timestamp: number;
+}
+
+const cache: {
+  googleMaps?: CachedKey;
+  openai?: CachedKey;
+} = {};
 
 // ============================================
 // GOOGLE MAPS API
 // ============================================
 
 /**
- * Obtém a chave da API do Google Maps
+ * Obtém a chave da API do Google Maps através da Edge Function
  * @returns A chave da API ou null se não configurada
  */
-export const getGoogleMapsApiKey = (): string | null => {
-  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  
-  if (!key || key.trim() === '') {
-    console.warn('⚠️ Google Maps API Key não configurada. Configure VITE_GOOGLE_MAPS_API_KEY no Dokploy.');
+export const getGoogleMapsApiKey = async (): Promise<string | null> => {
+  try {
+    // Verifica cache
+    if (cache.googleMaps && Date.now() - cache.googleMaps.timestamp < API_KEY_CACHE_DURATION) {
+      return cache.googleMaps.value;
+    }
+
+    // Busca da Edge Function
+    const { data, error } = await supabase.functions.invoke('get-maps-api-key');
+
+    if (error) {
+      console.error('❌ Erro ao buscar chave do Google Maps:', error);
+      return null;
+    }
+
+    if (!data?.apiKey) {
+      console.warn('⚠️ Google Maps API Key não configurada no Supabase Secrets.');
+      return null;
+    }
+
+    // Atualiza cache
+    cache.googleMaps = {
+      value: data.apiKey,
+      timestamp: Date.now()
+    };
+
+    return data.apiKey;
+  } catch (error) {
+    console.error('❌ Erro ao obter chave do Google Maps:', error);
     return null;
   }
-  
-  return key;
 };
 
 /**
  * Verifica se a chave do Google Maps está configurada
  * @returns true se a chave está configurada
  */
-export const hasGoogleMapsKey = (): boolean => {
-  return getGoogleMapsApiKey() !== null;
+export const hasGoogleMapsKey = async (): Promise<boolean> => {
+  const key = await getGoogleMapsApiKey();
+  return key !== null;
 };
 
 // ============================================
@@ -40,26 +76,40 @@ export const hasGoogleMapsKey = (): boolean => {
 // ============================================
 
 /**
- * Obtém a chave da API OpenAI
- * @returns A chave da API ou null se não configurada
+ * Chama a Edge Function de correção de texto (que usa a API OpenAI internamente)
+ * @param text Texto a ser corrigido
+ * @returns Texto corrigido ou null em caso de erro
  */
-export const getOpenAIApiKey = (): string | null => {
-  const key = import.meta.env.VITE_OPENAI_API_KEY;
-  
-  if (!key || key.trim() === '') {
-    console.warn('⚠️ OpenAI API Key não configurada. Configure VITE_OPENAI_API_KEY no Dokploy.');
+export const correctTextWithAI = async (text: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('text-correction', {
+      body: { text }
+    });
+
+    if (error) {
+      console.error('❌ Erro ao corrigir texto:', error);
+      return null;
+    }
+
+    return data?.correctedText || null;
+  } catch (error) {
+    console.error('❌ Erro ao chamar correção de texto:', error);
     return null;
   }
-  
-  return key;
 };
 
 /**
- * Verifica se a chave da OpenAI está configurada
- * @returns true se a chave está configurada
+ * Verifica se a API OpenAI está configurada (testando a Edge Function)
+ * @returns true se a API está configurada
  */
-export const hasOpenAIKey = (): boolean => {
-  return getOpenAIApiKey() !== null;
+export const hasOpenAIKey = async (): Promise<boolean> => {
+  try {
+    // Testa com um texto curto
+    const result = await correctTextWithAI('teste');
+    return result !== null;
+  } catch {
+    return false;
+  }
 };
 
 // ============================================
@@ -136,23 +186,23 @@ export interface ConfigStatus {
  * Obtém o status de todas as configurações
  * @returns Status de configuração de todas as integrações
  */
-export const getConfigStatus = (): ConfigStatus => {
-  const googleMapsConfigured = hasGoogleMapsKey();
-  const openaiConfigured = hasOpenAIKey();
+export const getConfigStatus = async (): Promise<ConfigStatus> => {
+  const googleMapsConfigured = await hasGoogleMapsKey();
+  const openaiConfigured = await hasOpenAIKey();
   const emailConfigured = hasEmailConfig();
 
   return {
     googleMaps: {
       configured: googleMapsConfigured,
       message: googleMapsConfigured 
-        ? '✅ Configurada' 
-        : '⚠️ Não configurada - Configure VITE_GOOGLE_MAPS_API_KEY no Dokploy'
+        ? '✅ Configurada via Edge Function' 
+        : '⚠️ Não configurada - Configure GOOGLE_MAPS_API_KEY nos Supabase Secrets'
     },
     openai: {
       configured: openaiConfigured,
       message: openaiConfigured 
-        ? '✅ Configurada' 
-        : '⚠️ Não configurada - Configure VITE_OPENAI_API_KEY no Dokploy'
+        ? '✅ Configurada via Edge Function' 
+        : '⚠️ Não configurada - Configure OPENAI_API_KEY nos Supabase Secrets'
     },
     email: {
       configured: emailConfigured,
@@ -186,11 +236,11 @@ export const validateRequiredConfig = (): boolean => {
 /**
  * Exibe um relatório de configuração no console
  */
-export const logConfigReport = (): void => {
+export const logConfigReport = async (): Promise<void> => {
   console.log('📋 Relatório de Configuração GMC Sentinela');
   console.log('==========================================');
   
-  const status = getConfigStatus();
+  const status = await getConfigStatus();
   
   console.log('🗺️  Google Maps:', status.googleMaps.message);
   console.log('🤖 OpenAI:', status.openai.message);
@@ -203,4 +253,13 @@ export const logConfigReport = (): void => {
   } else {
     console.log('✅ Configurações obrigatórias OK');
   }
+};
+
+/**
+ * Limpa o cache de chaves de API
+ */
+export const clearApiKeyCache = (): void => {
+  delete cache.googleMaps;
+  delete cache.openai;
+  console.log('🗑️ Cache de chaves de API limpo');
 };

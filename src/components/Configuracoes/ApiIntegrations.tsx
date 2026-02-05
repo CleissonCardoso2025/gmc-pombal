@@ -23,9 +23,9 @@ const ApiIntegrations = () => {
 
   // Carregar status das configurações
   useEffect(() => {
-    const loadStatus = () => {
+    const loadStatus = async () => {
       try {
-        const status = getConfigStatus();
+        const status = await getConfigStatus();
         setConfigStatus(status);
       } catch (error) {
         console.error('Erro ao carregar status das configurações:', error);
@@ -64,7 +64,7 @@ const ApiIntegrations = () => {
         <div>
           <h1 className="text-2xl font-bold">Integrações com APIs</h1>
           <p className="text-muted-foreground mt-1">
-            Configure as chaves de API através das variáveis de ambiente no Dokploy
+            Configure as chaves de API de forma segura através dos Supabase Secrets
           </p>
         </div>
         <Lock className="h-6 w-6 text-gcm-600" />
@@ -74,9 +74,9 @@ const ApiIntegrations = () => {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Importante:</strong> Por questões de segurança, as chaves de API agora devem ser configuradas
-          diretamente no painel do Dokploy através de variáveis de ambiente. Esta interface apenas exibe o
-          status das configurações.
+          <strong>Importante:</strong> Por questões de segurança, as chaves de API do Google Maps e OpenAI 
+          são gerenciadas através de <strong>Supabase Secrets</strong> e acessadas via Edge Functions. 
+          As chaves nunca são expostas no frontend. Esta interface apenas exibe o status das configurações.
         </AlertDescription>
       </Alert>
 
@@ -115,17 +115,17 @@ const ApiIntegrations = () => {
               {!configStatus.googleMaps.configured && (
                 <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100">
-                    Como configurar no Dokploy:
+                    Como configurar no Supabase:
                   </h4>
                   <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 dark:text-blue-200">
-                    <li>Acesse o painel do Dokploy</li>
-                    <li>Navegue até o projeto GMC Sentinela</li>
-                    <li>Vá em "Environment Variables"</li>
-                    <li>Adicione a variável: <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code></li>
+                    <li>Acesse o painel do Supabase</li>
+                    <li>Navegue até o projeto gmc-Ribeiradopombal</li>
+                    <li>Vá em "Project Settings" → "Edge Functions" → "Secrets"</li>
+                    <li>Adicione o secret: <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">GOOGLE_MAPS_API_KEY</code></li>
                     <li>Cole sua chave da API do Google Maps</li>
-                    <li>Salve e faça o redeploy da aplicação</li>
+                    <li>Salve - a Edge Function já está configurada para usar este secret</li>
                   </ol>
-                  <div className="pt-2">
+                  <div className="pt-2 flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -134,6 +134,15 @@ const ApiIntegrations = () => {
                     >
                       <ExternalLink className="h-4 w-4" />
                       Obter chave no Google Cloud
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open('https://supabase.com/dashboard/project/rdkugzjrvlvcorfsbdaz/settings/functions', '_blank')}
+                      className="gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Configurar no Supabase
                     </Button>
                   </div>
                 </div>
@@ -170,17 +179,17 @@ const ApiIntegrations = () => {
               {!configStatus.openai.configured && (
                 <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100">
-                    Como configurar no Dokploy:
+                    Como configurar no Supabase:
                   </h4>
                   <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 dark:text-blue-200">
-                    <li>Acesse o painel do Dokploy</li>
-                    <li>Navegue até o projeto GMC Sentinela</li>
-                    <li>Vá em "Environment Variables"</li>
-                    <li>Adicione a variável: <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">VITE_OPENAI_API_KEY</code></li>
+                    <li>Acesse o painel do Supabase</li>
+                    <li>Navegue até o projeto gmc-Ribeiradopombal</li>
+                    <li>Vá em "Project Settings" → "Edge Functions" → "Secrets"</li>
+                    <li>Adicione o secret: <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">OPENAI_API_KEY</code></li>
                     <li>Cole sua chave da API OpenAI</li>
-                    <li>Salve e faça o redeploy da aplicação</li>
+                    <li>Salve - a Edge Function já está configurada para usar este secret</li>
                   </ol>
-                  <div className="pt-2">
+                  <div className="pt-2 flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -189,6 +198,15 @@ const ApiIntegrations = () => {
                     >
                       <ExternalLink className="h-4 w-4" />
                       Obter chave na OpenAI
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open('https://supabase.com/dashboard/project/rdkugzjrvlvcorfsbdaz/settings/functions', '_blank')}
+                      className="gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Configurar no Supabase
                     </Button>
                   </div>
                 </div>
